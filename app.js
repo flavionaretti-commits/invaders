@@ -83,21 +83,13 @@ function prepareLevel(){
 }
 function addRow(type,count,startX,spacing,y){ for(let i=0;i<count;i++) state.aliens.push({type,x:startX+i*spacing,y,alive:true}); }
 
-const FONT5x7={
- M:['10001','11011','10101','10101','10001','10001','10001'],
- A:['01110','10001','10001','11111','10001','10001','10001'],
- R:['11110','10001','10001','11110','10100','10010','10001'],
- I:['11111','00100','00100','00100','00100','00100','11111'],
- T:['11111','00100','00100','00100','00100','00100','00100'],
- N:['10001','11001','10101','10011','10001','10001','10001'],
- O:['01110','10001','10001','10001','10001','10001','01110']
-};
+// Coordinate dei cloni della barriera ricavate direttamente dal progetto Scratch originale.
+const MARITANO_CLONES=[[-200,-140],[-200,-136],[-200,-132],[-200,-128],[-200,-124],[-200,-120],[-200,-116],[-200,-112],[-200,-108],[-196,-108],[-192,-112],[-192,-116],[-188,-120],[-188,-124],[-184,-128],[-184,-132],[-180,-124],[-180,-120],[-176,-116],[-176,-112],[-172,-108],[-168,-108],[-168,-112],[-168,-116],[-168,-120],[-168,-124],[-168,-128],[-168,-132],[-168,-136],[-168,-140],[-140,-140],[-140,-136],[-140,-132],[-136,-128],[-136,-124],[-136,-120],[-132,-116],[-132,-112],[-128,-108],[-124,-112],[-124,-116],[-120,-120],[-120,-124],[-120,-128],[-124,-128],[-128,-128],[-132,-128],[-116,-132],[-116,-132],[-116,-136],[-116,-140],[-80,-140],[-80,-136],[-80,-132],[-80,-128],[-80,-124],[-80,-120],[-80,-116],[-80,-112],[-80,-108],[-76,-108],[-72,-108],[-68,-108],[-64,-108],[-60,-112],[-60,-116],[-60,-120],[-64,-124],[-68,-124],[-72,-124],[-76,-124],[-72,-128],[-68,-132],[-64,-136],[-60,-140],[-20,-140],[-20,-136],[-20,-132],[-20,-128],[-20,-124],[-20,-120],[-20,-116],[-20,-112],[-20,-108],[20,-140],[20,-136],[20,-132],[20,-128],[20,-124],[20,-120],[20,-116],[20,-112],[20,-108],[8,-108],[12,-108],[16,-108],[20,-108],[24,-108],[28,-108],[32,-108],[60,-140],[60,-136],[60,-132],[64,-128],[64,-124],[64,-120],[68,-116],[68,-112],[72,-108],[76,-112],[76,-116],[80,-120],[80,-124],[80,-128],[76,-128],[72,-128],[68,-128],[84,-132],[84,-132],[84,-136],[84,-140],[120,-140],[120,-136],[120,-132],[120,-128],[120,-124],[120,-120],[120,-116],[120,-112],[120,-108],[124,-108],[128,-112],[128,-116],[132,-120],[132,-124],[136,-128],[136,-132],[140,-136],[144,-140],[144,-136],[144,-132],[144,-128],[144,-124],[144,-120],[144,-116],[144,-112],[144,-108],[180,-132],[180,-128],[180,-124],[180,-120],[180,-116],[184,-112],[188,-108],[188,-108],[192,-108],[196,-108],[200,-108],[200,-108],[204,-112],[208,-116],[208,-120],[208,-124],[208,-128],[208,-132],[208,-132],[204,-136],[200,-140],[200,-140],[196,-140],[192,-140],[188,-140],[184,-136],[180,-132]];
 function makeMaritanoShield(){
-  const word='MARITANO', px=4, letterW=5*px, gap=5, total=word.length*letterW+(word.length-1)*gap;
-  const startX=(W-total)/2;
-  for(let li=0;li<word.length;li++){
-    const patt=FONT5x7[word[li]]; const ox=startX+li*(letterW+gap);
-    for(let r=0;r<7;r++) for(let c=0;c<5;c++) if(patt[r][c]==='1') state.shields.push({x:ox+c*px+px/2,y:286+r*px+px/2,w:px,h:px,alive:true});
+  // Scratch usa coordinate con origine al centro: x + 240, y invertita rispetto al canvas.
+  // Ogni clone è un quadratino logico 4×4, come nel costume originale 8×8 a risoluzione 2.
+  for(const [sx,sy] of MARITANO_CLONES){
+    state.shields.push({x:sx+240,y:180-sy,w:4,h:4,alive:true});
   }
 }
 function showLevelBanner(text,ms,done){
@@ -127,7 +119,9 @@ function fireEnemy(){
   const a=near[0]||sample; state.enemyShots.push({x:a.x,y:a.y+10,w:4,h:9,frame:Math.random()<.5?0:1}); playSound('pew');
 }
 function spawnMystery(){
-  state.mystery={x:W+22,y:24,w:32,h:14,hit:false}; playSound('whoop');
+  // Nel progetto Scratch l'astronave misteriosa passa a y=173:
+  // nel canvas equivale a y=7, quindi resta sopra la prima fila di invasori.
+  state.mystery={x:W+22,y:7,w:32,h:14,hit:false}; playSound('whoop');
 }
 
 function update(dt,now){
@@ -194,6 +188,13 @@ function update(dt,now){
 
 function alienSize(type){const img=images[`alien${type}a`];return logicalImageSize(img);}
 function drawSprite(img,x,y,scale=.5){ctx.drawImage(img,Math.round(x-img.naturalWidth*scale/2),Math.round(y-img.naturalHeight*scale/2),img.naturalWidth*scale,img.naturalHeight*scale);}
+function drawRotatedSprite(img,x,y,angle=Math.PI/2,scale=.5){
+  ctx.save();
+  ctx.translate(Math.round(x),Math.round(y));
+  ctx.rotate(angle);
+  ctx.drawImage(img,-img.naturalWidth*scale/2,-img.naturalHeight*scale/2,img.naturalWidth*scale,img.naturalHeight*scale);
+  ctx.restore();
+}
 function drawHud(){
   ctx.save();ctx.fillStyle='#fff';ctx.font='12px "Courier New",monospace';ctx.textBaseline='top';
   ctx.fillText(`SCORE ${String(state.score).padStart(5,'0')}`,8,5);
@@ -214,8 +215,10 @@ function draw(){
   for(const s of state.shields) if(s.alive){ctx.fillStyle='#fff';ctx.fillRect(Math.round(s.x-s.w/2),Math.round(s.y-s.h/2),s.w,s.h);}
   for(const a of state.aliens) if(a.alive){const img=images[`alien${a.type}${state.animFrame?'b':'a'}`];drawSprite(img,a.x,a.y,.5);}
   if(state.mystery){drawSprite(images[state.mystery.hit?'mysteryHit':'mystery'],state.mystery.x,state.mystery.y,.5);}
-  for(const b of state.enemyShots){drawSprite(images[b.frame?'enemyShotB':'enemyShotA'],b.x,b.y,.5);}
-  if(state.playerShot){drawSprite(images.laser,state.playerShot.x,state.playerShot.y,.5);}
+  // I costumi originali sono bitmap orizzontali; in Scratch vengono ruotati
+  // dalla direzione dello sprite. Sul canvas replichiamo la stessa rotazione di 90°.
+  for(const b of state.enemyShots){drawRotatedSprite(images[b.frame?'enemyShotB':'enemyShotA'],b.x,b.y,Math.PI/2,.5);}
+  if(state.playerShot){drawRotatedSprite(images.laser,state.playerShot.x,state.playerShot.y,Math.PI/2,.5);}
   if(state.player.dead){drawSprite(images.cannonHit,state.player.x,state.player.y,.5);} else drawSprite(images.cannon,state.player.x,state.player.y,.5);
 }
 
