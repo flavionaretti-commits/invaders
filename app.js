@@ -7,6 +7,8 @@ ctx.imageSmoothingEnabled = false;
 const W = canvas.width, H = canvas.height;
 const loading = document.getElementById('loading');
 const levelBanner = document.getElementById('levelBanner');
+const pauseBtn = document.getElementById('pauseBtn');
+const endBtn = document.getElementById('endBtn');
 const soundBtn = document.getElementById('soundBtn');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 const infoBtn = document.getElementById('infoBtn');
@@ -40,13 +42,22 @@ function unlockAudio(){
 }
 function playSound(name){ if(!soundOn||!audioUnlocked||!sounds[name]) return; const a=sounds[name].cloneNode(); a.volume=sounds[name].volume; a.play().catch(()=>{}); }
 function updateSoundButton(){ soundBtn.textContent=soundOn?'🔊':'🔇'; soundBtn.setAttribute('aria-pressed',String(soundOn)); }
+function syncGameButtons(){
+  const pausable=state.mode==='playing'||state.mode==='paused';
+  const inMatch=!['menu','gameover'].includes(state.mode);
+  pauseBtn.disabled=!pausable;
+  endBtn.disabled=!inMatch;
+  pauseBtn.textContent=state.mode==='paused'?'▶':'⏸';
+  pauseBtn.title=state.mode==='paused'?'Riprendi':'Pausa';
+  pauseBtn.setAttribute('aria-label',state.mode==='paused'?'Riprendi':'Pausa');
+}
 updateSoundButton();
 
 const state = {
   mode:'menu', score:0, high:Number(localStorage.getItem('maritano-invaders-high')||0), level:1,
   player:{x:240,y:332,w:22,h:14,dead:false},
   aliens:[], playerShot:null, enemyShots:[], shields:[], mystery:null,
-  enemyFrame:0, enemyPhase:0, enemyClock:0, animClock:0, animFrame:0,
+  enemyFrame:0, enemyDirection:1, enemyClock:0, animClock:0, animFrame:0,
   enemyFireClock:0, mysteryClock:0, nextMystery:12,
   levelPauseUntil:0, deathUntil:0
 };
@@ -70,12 +81,12 @@ function levelParams(){
 }
 
 function newGame(){
-  unlockAudio(); state.score=0; state.level=1; state.player.dead=false; state.player.x=240; state.mode='level';
-  prepareLevel(); showLevelBanner(`LIVELLO ${state.level}`,1200,()=>state.mode='playing');
+  unlockAudio(); state.score=0; state.level=1; state.player.dead=false; state.player.x=240; state.mode='level'; syncGameButtons();
+  prepareLevel(); showLevelBanner(`LIVELLO ${state.level}`,1200,()=>{state.mode='playing';syncGameButtons();});
 }
 function prepareLevel(){
   state.aliens=[]; state.playerShot=null; state.enemyShots=[]; state.shields=[]; state.mystery=null;
-  state.enemyPhase=0; state.enemyClock=0; state.animClock=0; state.animFrame=0; state.enemyFireClock=0; state.mysteryClock=0;
+  state.enemyDirection=1; state.enemyClock=0; state.animClock=0; state.animFrame=0; state.enemyFireClock=0; state.mysteryClock=0;
   const p=levelParams(); state.nextMystery=p.mysteryMin+Math.random()*(p.mysteryMax-p.mysteryMin);
   // Formazione esatta del progetto Scratch: 22 + 20 + 20 + 20 + 20 = 102 invasori.
   addRow(1,22,24,20,12); addRow(2,20,24,22,42); addRow(2,20,24,22,72); addRow(3,20,28,22,102); addRow(3,20,28,22,132);
@@ -97,18 +108,18 @@ function showLevelBanner(text,ms,done){
   setTimeout(()=>{levelBanner.classList.remove('show'); if(done) setTimeout(done,120);},ms);
 }
 function completeLevel(){
-  if(state.mode!=='playing') return; state.mode='level'; state.level++;
-  showLevelBanner(`LIVELLO ${state.level}`,1250,()=>{prepareLevel();state.mode='playing';});
+  if(state.mode!=='playing') return; state.mode='level'; state.level++; syncGameButtons();
+  showLevelBanner(`LIVELLO ${state.level}`,1250,()=>{prepareLevel();state.mode='playing';syncGameButtons();});
 }
 function endGame(){
-  if(state.mode==='gameover'||state.mode==='dying') return; state.player.dead=true; state.mode='dying'; playSound('destroyed');
+  if(state.mode==='gameover'||state.mode==='dying') return; state.player.dead=true; state.mode='dying'; syncGameButtons(); playSound('destroyed');
   state.high=Math.max(state.high,state.score); localStorage.setItem('maritano-invaders-high',String(state.high));
   state.deathUntil=performance.now()+900;
 }
 
 function firePlayer(){
   if(state.mode==='menu'){newGame();return;}
-  if(state.mode==='gameover'){state.mode='menu';draw();return;}
+  if(state.mode==='gameover'){state.mode='menu';syncGameButtons();draw();return;}
   if(state.mode!=='playing'||state.playerShot||state.player.dead) return;
   state.playerShot={x:state.player.x,y:state.player.y-13,w:3,h:10,hit:false}; playSound('pew');
 }
@@ -125,7 +136,7 @@ function spawnMystery(){
 }
 
 function update(dt,now){
-  if(state.mode==='dying'){ if(now>=state.deathUntil){state.mode='gameover';} return; }
+  if(state.mode==='dying'){ if(now>=state.deathUntil){state.mode='gameover';syncGameButtons();} return; }
   if(state.mode!=='playing') return;
   const p=levelParams();
   const speed=150;
@@ -137,13 +148,31 @@ function update(dt,now){
   state.enemyClock+=dt;
   while(state.enemyClock>=p.stepInterval){
     state.enemyClock-=p.stepInterval;
-    const phase=state.enemyPhase%10;
-    if(phase<4) for(const a of state.aliens) if(a.alive) a.x+=4;
-    else if(phase===4) for(const a of state.aliens) if(a.alive) a.y+=12;
-    else if(phase<9) for(const a of state.aliens) if(a.alive) a.x-=4;
-    else for(const a of state.aliens) if(a.alive) a.y+=12;
-    state.enemyPhase=(state.enemyPhase+1)%10;
-    playSound(state.enemyPhase%2?'bassC':'bassD');
+    const alive=state.aliens.filter(a=>a.alive);
+    if(!alive.length) break;
+
+    const step=4;
+    const drop=12;
+    const margin=8;
+    let minX=Infinity, maxX=-Infinity;
+
+    for(const a of alive){
+      const sz=alienSize(a.type);
+      minX=Math.min(minX,a.x-sz.w/2);
+      maxX=Math.max(maxX,a.x+sz.w/2);
+    }
+
+    const wouldHitRight=state.enemyDirection>0 && maxX+step>W-margin;
+    const wouldHitLeft=state.enemyDirection<0 && minX-step<margin;
+
+    if(wouldHitRight||wouldHitLeft){
+      // Comportamento classico: al bordo la formazione scende di una riga e inverte marcia.
+      for(const a of alive) a.y+=drop;
+      state.enemyDirection*=-1;
+    }else{
+      for(const a of alive) a.x+=step*state.enemyDirection;
+    }
+    playSound(state.enemyDirection>0?'bassC':'bassD');
   }
 
   state.enemyFireClock+=dt;
@@ -225,18 +254,49 @@ function draw(){
 function loop(now){const dt=Math.min(.04,(now-last)/1000);last=now;update(dt,now);draw();requestAnimationFrame(loop);} requestAnimationFrame(loop);
 
 function setKey(code,on){if(code==='ArrowLeft'||code==='KeyA')keys.left=on;if(code==='ArrowRight'||code==='KeyD')keys.right=on;if(code==='Space'&&on)firePlayer();}
-window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Space','Enter'].includes(e.code))e.preventDefault();unlockAudio();if(e.code==='Enter'&&state.mode==='menu')newGame();else if(e.code==='Enter'&&state.mode==='gameover'){state.mode='menu';}setKey(e.code,true);},{passive:false});
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Space','Enter'].includes(e.code))e.preventDefault();unlockAudio();if(e.code==='Enter'&&state.mode==='menu')newGame();else if(e.code==='Enter'&&state.mode==='gameover'){state.mode='menu';syncGameButtons();}setKey(e.code,true);},{passive:false});
 window.addEventListener('keyup',e=>setKey(e.code,false));
-canvas.addEventListener('pointerdown',()=>{unlockAudio();if(state.mode==='menu')newGame();else if(state.mode==='gameover')state.mode='menu';else firePlayer();});
+canvas.addEventListener('pointerdown',()=>{unlockAudio();if(state.mode==='menu')newGame();else if(state.mode==='gameover'){state.mode='menu';syncGameButtons();}else if(state.mode!=='paused')firePlayer();});
 
 function bindHold(id,key){const el=document.getElementById(id);const down=e=>{e.preventDefault();unlockAudio();keys[key]=true;el.classList.add('active');};const up=e=>{e.preventDefault();keys[key]=false;el.classList.remove('active');};el.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(n=>el.addEventListener(n,up));}
 bindHold('leftBtn','left');bindHold('rightBtn','right');
 document.getElementById('fireBtn').addEventListener('pointerdown',e=>{e.preventDefault();unlockAudio();e.currentTarget.classList.add('active');firePlayer();});
 document.getElementById('fireBtn').addEventListener('pointerup',e=>e.currentTarget.classList.remove('active'));
 
+pauseBtn.addEventListener('click',()=>{
+  if(state.mode==='playing'){
+    state.mode='paused';
+    levelBanner.textContent='PAUSA';
+    levelBanner.classList.add('show');
+  }else if(state.mode==='paused'){
+    state.mode='playing';
+    levelBanner.classList.remove('show');
+  }
+  syncGameButtons();
+});
+
+endBtn.addEventListener('click',()=>{
+  if(['menu','gameover'].includes(state.mode)) return;
+  if(!window.confirm('Terminare la partita e tornare alla schermata iniziale?')) return;
+  state.high=Math.max(state.high,state.score);
+  localStorage.setItem('maritano-invaders-high',String(state.high));
+  state.mode='menu';
+  state.player.dead=false;
+  state.playerShot=null;
+  state.enemyShots=[];
+  state.aliens=[];
+  state.shields=[];
+  state.mystery=null;
+  keys.left=false; keys.right=false; keys.fire=false;
+  levelBanner.classList.remove('show');
+  syncGameButtons();
+  draw();
+});
+
 soundBtn.addEventListener('click',()=>{unlockAudio();soundOn=!soundOn;localStorage.setItem('invaders-sound',soundOn?'on':'off');updateSoundButton();});
 infoBtn.addEventListener('click',()=>infoDialog.showModal());
 fullscreenBtn.addEventListener('click',async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch{}});
 
+syncGameButtons();
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 loadAll().catch(err=>{console.error(err);loading.textContent='ERRORE NEL CARICAMENTO';});
