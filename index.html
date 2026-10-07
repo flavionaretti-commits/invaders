@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Invaders">
+  <title>MARITANO INVADERS!</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar" aria-label="Comandi applicazione">
+      <div class="brand">MARITANO INVADERS!</div>
+      <div class="top-actions">
+        <button id="soundBtn" class="icon-btn" type="button" aria-label="Attiva o disattiva i suoni" title="Suoni">🔊</button>
+        <button id="infoBtn" class="icon-btn" type="button" aria-label="Istruzioni e crediti" title="Istruzioni">i</button>
+        <button id="fullscreenBtn" class="icon-btn" type="button" aria-label="Schermo intero" title="Schermo intero">⛶</button>
+      </div>
+    </header>
+    <section class="game-wrap" aria-label="Maritano Invaders">
+      <canvas id="game" width="480" height="360" aria-label="Campo di gioco"></canvas>
+      <div id="loading" class="loading">CARICAMENTO…</div>
+      <div id="levelBanner" class="level-banner" aria-live="polite"></div>
+    </section>
+    <div class="touch-controls" aria-label="Controlli touch">
+      <button id="leftBtn" class="touch-btn move" type="button" aria-label="Sposta a sinistra">◀</button>
+      <button id="fireBtn" class="touch-btn fire" type="button" aria-label="Spara">●</button>
+      <button id="rightBtn" class="touch-btn move" type="button" aria-label="Sposta a destra">▶</button>
+    </div>
+    <p class="kbd-help">← → per muoversi · SPAZIO per sparare · INVIO per iniziare</p>
+  </main>
+  <dialog id="infoDialog">
+    <form method="dialog" class="dialog-card">
+      <button class="close" aria-label="Chiudi">×</button>
+      <h2>MARITANO INVADERS!</h2>
+      <p>Elimina l'intera invasione prima che raggiunga la base. Ogni livello è più veloce e gli alieni sparano più spesso.</p>
+      <p><strong>Tastiera:</strong> frecce sinistra/destra per muoverti, SPAZIO per sparare. Su smartphone e iPad usa i tre pulsanti sotto il campo di gioco.</p>
+      <p>Il punteggio continua tra i livelli e il record viene salvato sul dispositivo.</p>
+      <hr>
+      <p class="credits">Progetto Scratch, programmazione e pixel art: <strong>Flavio Naretti</strong>.<br>Suoni: libreria Scratch.<br>Ispirato al celebre videogioco ideato da Tomohiro Nishikado (1978).</p>
+    </form>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>
