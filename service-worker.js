@@ -1,4 +1,4 @@
-const CACHE='maritano-invaders-v1.0.2';
+const CACHE='maritano-invaders-v1.0.3';
 const ASSETS=[
   './','./index.html','./style.css','./app.js','./manifest.webmanifest',
   './icons/icon-192.png','./icons/icon-512.png',
