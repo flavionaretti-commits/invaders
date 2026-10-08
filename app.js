@@ -127,7 +127,7 @@ function fireEnemy(){
   const alive=state.aliens.filter(a=>a.alive); if(!alive.length) return;
   const sample=alive[Math.floor(Math.random()*alive.length)];
   const near=alive.filter(a=>Math.abs(a.x-sample.x)<7).sort((a,b)=>b.y-a.y);
-  const a=near[0]||sample; state.enemyShots.push({x:a.x,y:a.y+10,w:4,h:9,frame:Math.random()<.5?0:1}); playSound('pew');
+  const a=near[0]||sample; state.enemyShots.push({x:a.x,y:a.y+10,w:4,h:9,frame:Math.random()<.5?0:1,animClock:Math.random()*.12,flipY:Math.random()<.5}); playSound('pew');
 }
 function spawnMystery(){
   // Nel progetto Scratch l'astronave misteriosa passa a y=173:
@@ -201,6 +201,16 @@ function update(dt,now){
 
   for(const b of state.enemyShots){
     b.y+=p.shotSpeed*dt;
+
+    // Effetto "serpeggiante" come nello Scratch: mentre scende il colpo
+    // alterna i due costumi e si ribalta verticalmente circa 8 volte al secondo.
+    b.animClock=(b.animClock||0)+dt;
+    while(b.animClock>=.12){
+      b.animClock-=.12;
+      b.frame=b.frame?0:1;
+      b.flipY=!b.flipY;
+    }
+
     for(const s of state.shields){if(s.alive&&rects(b,s)){s.alive=false;b.dead=true;break;}}
     if(!b.dead&&rects(b,state.player)){b.dead=true;endGame();}
     if(b.y>H+12)b.dead=true;
@@ -217,9 +227,10 @@ function update(dt,now){
 
 function alienSize(type){const img=images[`alien${type}a`];return logicalImageSize(img);}
 function drawSprite(img,x,y,scale=.5){ctx.drawImage(img,Math.round(x-img.naturalWidth*scale/2),Math.round(y-img.naturalHeight*scale/2),img.naturalWidth*scale,img.naturalHeight*scale);}
-function drawRotatedSprite(img,x,y,angle=Math.PI/2,scale=.5){
+function drawRotatedSprite(img,x,y,angle=Math.PI/2,scale=.5,flipY=false){
   ctx.save();
   ctx.translate(Math.round(x),Math.round(y));
+  if(flipY) ctx.scale(1,-1);
   ctx.rotate(angle);
   ctx.drawImage(img,-img.naturalWidth*scale/2,-img.naturalHeight*scale/2,img.naturalWidth*scale,img.naturalHeight*scale);
   ctx.restore();
@@ -246,7 +257,7 @@ function draw(){
   if(state.mystery){drawSprite(images[state.mystery.hit?'mysteryHit':'mystery'],state.mystery.x,state.mystery.y,.5);}
   // I costumi originali sono bitmap orizzontali; in Scratch vengono ruotati
   // dalla direzione dello sprite. Sul canvas replichiamo la stessa rotazione di 90°.
-  for(const b of state.enemyShots){drawRotatedSprite(images[b.frame?'enemyShotB':'enemyShotA'],b.x,b.y,Math.PI/2,.5);}
+  for(const b of state.enemyShots){drawRotatedSprite(images[b.frame?'enemyShotB':'enemyShotA'],b.x,b.y,Math.PI/2,.5,b.flipY);}
   if(state.playerShot){drawRotatedSprite(images.laser,state.playerShot.x,state.playerShot.y,Math.PI/2,.5);}
   if(state.player.dead){drawSprite(images.cannonHit,state.player.x,state.player.y,.5);} else drawSprite(images.cannon,state.player.x,state.player.y,.5);
 }
